@@ -16,12 +16,12 @@
 ## Usage
 
 ### Import and Setup
-\`\`\`typescript
+```typescript
 import { FetchCustom } from './FetchCustom';
-\`\`\`
+```
 
 ### Example Request
-\`\`\`typescript
+```typescript
 const fetcher = new FetchCustom();
 
 async function makeRequest() {
@@ -39,22 +39,49 @@ async function makeRequest() {
 }
 
 makeRequest();
-\`\`\`
+```
 
-### Methods
+#### `toJson<T>(): Promise<{ data: T | undefined; error: Error | undefined }>`
+This method parses the response as JSON and returns the data or error.
 
-- \`fetchCustom(input: RequestInfo, init?: RequestInit): Promise<FetchCustom>\`  
-  - A method to perform a fetch request with custom logic for handling body serialization and error responses.
+**Example:**
 
-- \`toJson<T>(): Promise<{ data: T | undefined; error: Error | undefined }>\`  
-  - A method to parse the response as JSON.
+```typescript
+const result = await fetcher.toJson();
+if (result.error) {
+  console.error('Error:', result.error);
+} else {
+  console.log('Data:', result.data);
+}
+```
 
-- \`toText<T>(): Promise<{ data: T | undefined; error: Error | undefined }>\`  
-  - A method to parse the response as plain text.
+#### `toText<T>(): Promise<{ data: T | undefined; error: Error | undefined }>`
+This method parses the response as plain text.
 
-- \`toBlob<T>(): Promise<{ data: T | undefined; error: Error | undefined }>\`  
-  - A method to parse the response as a blob.
+**Example:**
 
+```typescript
+const result = await fetcher.toText();
+if (result.error) {
+  console.error('Error:', result.error);
+} else {
+  console.log('Text:', result.data);
+}
+```
+
+#### `toBlob<T>(): Promise<{ data: T | undefined; error: Error | undefined }>`
+This method parses the response as a blob.
+
+**Example:**
+
+```typescript
+const result = await fetcher.toBlob();
+if (result.error) {
+  console.error('Error:', result.error);
+} else {
+  console.log('Blob:', result.data);
+}
+```
 ## Error Handling
 If the fetch request returns a non-OK status (HTTP status code outside the 2xx range), the library throws a \`ResponseError\` with details such as \`statusText\` and \`statusCode\`.
 
