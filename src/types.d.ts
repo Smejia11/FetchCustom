@@ -1,0 +1,1 @@
+export type RequestInfo = string | URL | Request;
