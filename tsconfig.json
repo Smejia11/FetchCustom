@@ -16,9 +16,17 @@
     "noImplicitOverride": true,
 
     /* If transpiling with TypeScript: */
-    "module": "Preserve",
+    "module": "NodeNext",
+    "outDir": "dist",
+    "rootDir": "src",
+    "sourceMap": true,
 
-    "lib": ["es2022"],
-    "noEmit": true,
-  }
+    /* AND if you're building for a library: */
+    "declaration": true,
+
+    /* AND if you're building for a library in a monorepo: */
+    "declarationMap": true
+  },
+  "exclude": ["node_modules", "test"],
+  "include": ["src"] // which files to compile
 }
