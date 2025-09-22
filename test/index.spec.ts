@@ -1,4 +1,4 @@
-import { FetchCustom } from '../FetchCustom';
+import { FetchCustom } from '../src/FetchCustom';
 import { describe, expect, it, beforeEach, afterEach } from 'vitest';
 import TestServer from './utils/server';
 

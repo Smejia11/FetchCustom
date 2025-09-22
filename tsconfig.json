@@ -19,6 +19,6 @@
     "module": "Preserve",
 
     "lib": ["es2022"],
-    "noEmit": true,
+    "noEmit": true
   }
 }
