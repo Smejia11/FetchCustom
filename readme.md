@@ -17,10 +17,14 @@
 
 ## Usage
 
+```bash
+npm i fetchcustom-vsm
+```
+
 ### Import and Setup
 
 ```typescript
-import { FetchCustom } from './FetchCustom';
+import { FetchCustom } from './fetchcustom-vsm';
 ```
 
 ### Example Request

@@ -1,5 +1,5 @@
 {
-  "name": "fetchcustom",
+  "name": "fetchcustom-vsm",
   "version": "2.0.0",
   "description": "Simple fetch custom",
   "main": "dist/index.js",
@@ -13,13 +13,9 @@
     "format": "prettier --write .",
     "local-release": "changeset version && changeset publish"
   },
-  "exports": {
-    "./package.json": "./package.json",
-    ".": {
-      "import": "./dist/index.js",
-      "default": "./dist/index.cjs"
-    }
-  },
+  "files": [
+    "dist"
+  ],
   "author": "Santiago Mejia",
   "license": "MIT",
   "devDependencies": {
@@ -33,5 +29,9 @@
   "engineStrict": true,
   "engines": {
     "node": ">=18.0.0"
-  }
+  },
+  "keywords": [
+    "demo",
+    "typescript"
+  ]
 }
