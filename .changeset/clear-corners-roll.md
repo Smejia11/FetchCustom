@@ -1,5 +1,0 @@
----
-'fetchcustom': major
----
-
-delete tsup

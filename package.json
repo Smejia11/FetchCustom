@@ -1,18 +1,17 @@
 {
   "name": "fetchcustom",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Simple fetch custom",
   "main": "dist/index.js",
   "type": "module",
   "scripts": {
     "test": "vitest run",
-    "build": "tsup",
+    "build": "tsc",
     "check-format": "prettier --check .",
     "ci": "pnpm run build && pnpm run check-format && pnpm run test",
     "prepublishOnly": "pnpm run ci",
     "format": "prettier --write .",
-    "local-release": "changeset version && changeset publish",
-    "lint": "tsc"
+    "local-release": "changeset version && changeset publish"
   },
   "exports": {
     "./package.json": "./package.json",
@@ -26,12 +25,10 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.16.2",
     "@changesets/cli": "^2.27.8",
-    "prettier": "^3.3.3",
-    "tsup": "^8.2.4",
+    "prettier": "^3.6.2",
     "typescript": "^5.6.2",
     "vitest": "^2.1.1",
-    "@types/node": "^22.5.5",
-    "jest": "^29.7.0"
+    "@types/node": "^22.5.5"
   },
   "engineStrict": true,
   "engines": {
