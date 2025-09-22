@@ -8,7 +8,7 @@
     "test": "vitest run",
     "build": "tsup",
     "check-format": "prettier --check .",
-    "ci": "pnpm run build && pnpm run check-format && pnpm run check-exports && pnpm run lint",
+    "ci": "pnpm run build && pnpm run check-format && pnpm run test",
     "prepublishOnly": "pnpm run ci",
     "format": "prettier --write .",
     "local-release": "changeset version && changeset publish",
