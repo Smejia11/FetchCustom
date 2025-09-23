@@ -1,4 +1,4 @@
-import { result } from './result/result.js';
+import { result } from './Result/result.js';
 import type { RequestInfo } from './types.js';
 
 export class ResponseError extends Error {
