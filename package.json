@@ -10,7 +10,7 @@
     "check-format": "prettier --check .",
     "ci": "pnpm run build && pnpm run check-format && pnpm run test",
     "prepublishOnly": "pnpm run ci",
-    "format": "prettier --write .",
+    "format": "prettier --write \"{src,test}/**/*.{ts,tsx,js,jsx}\"",
     "local-release": "changeset version && changeset publish"
   },
   "files": [
