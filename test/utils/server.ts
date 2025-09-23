@@ -70,5 +70,24 @@ export default class TestServer extends EventEmitter.EventEmitter {
         }),
       );
     }
+
+    if (p === '/json-type-400-status') {
+      res.statusCode = 400;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(
+        JSON.stringify({
+          test: 'json',
+        }),
+      );
+    }
+
+    if (p === '/json-type-time-out') {
+      const timer = setTimeout(() => {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ message: 'time out 5s' }));
+      }, 5000);
+      res.on('close', () => clearTimeout(timer));
+      return;
+    }
   }
 }
