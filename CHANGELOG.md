@@ -1,5 +1,11 @@
 # fetchcustom
 
+## 3.0.0
+
+### Major Changes
+
+- 07359c8: feat: Improvements to ResponseError and DOMException handling tests
+
 ## 2.0.0
 
 ### Major Changes
