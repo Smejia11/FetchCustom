@@ -1,5 +1,11 @@
 # fetchcustom
 
+## 3.0.1
+
+### Patch Changes
+
+- 39e8743: added config in package and format correct in edit config
+
 ## 3.0.0
 
 ### Major Changes
