@@ -94,9 +94,45 @@ if (result.error) {
 }
 ```
 
+
 ## Error Handling
 
 If the fetch request returns a non-OK status (HTTP status code outside the 2xx range), the library throws a \`ResponseError\` with details such as \`statusText\` and \`statusCode\`.
+
+### 🌐 Important Links
+
+-Homepage: https://github.com/Smejia11/FetchCustom
+
+-Repository: git+https://github.com/Smejia11/FetchCustom.git
+
+-Issues: https://github.com/Smejia11/FetchCustom/issues
+
+### 🤝 Contributing
+
+Contributions are welcome.
+
+Fork the project
+
+Create your feature branch (git checkout -b feature/AmazingFeature)
+
+Execute
+
+```bash
+npm run format
+```
+
+or
+
+```
+pnpm run format
+```
+
+Commit your changes (git commit -m 'Add some AmazingFeature')
+
+Push to the branch (git push origin feature/AmazingFeature)
+
+Open a Pull Request
+
 
 ## License
 
