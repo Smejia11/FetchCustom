@@ -94,7 +94,6 @@ if (result.error) {
 }
 ```
 
-
 ## Error Handling
 
 If the fetch request returns a non-OK status (HTTP status code outside the 2xx range), the library throws a \`ResponseError\` with details such as \`statusText\` and \`statusCode\`.
@@ -132,7 +131,6 @@ Commit your changes (git commit -m 'Add some AmazingFeature')
 Push to the branch (git push origin feature/AmazingFeature)
 
 Open a Pull Request
-
 
 ## License
 
