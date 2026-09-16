@@ -189,6 +189,8 @@ await fetcher.fetchCustom('https://api.example.com/data', {
 
 This is off by default, since it would otherwise reject a legitimate field that happens to be named `constructor` (e.g. a car's `constructor: 'Ford'`). It only protects the receiving server against its own unsafe merge of the body — it is not a substitute for sanitizing that server's input, and it has nothing to do with XSS: this library sends bytes over HTTP, it does not render anything into a DOM, so escaping HTML/script content here would only corrupt legitimate payloads (code snippets, HTML content, etc.) without preventing XSS, which must be handled at the point where data is rendered.
 
+When enabled, it also caps how deep it will recurse into the body (20 levels). A body nested past that limit — or a circular reference, which keeps increasing the depth on every pass instead of terminating — makes `fetchCustom` fail with a `ResponseError` you can inspect via `showResponseErrorClass()`, instead of recursing indefinitely and blocking the event loop or overflowing the stack.
+
 ## Error Handling
 
 If the fetch request returns a non-OK status (HTTP status code outside the 2xx range), the library throws a \`ResponseError\` with details such as \`statusText\` and \`statusCode\`.

@@ -70,14 +70,25 @@ function isPlainObjectValue(value: unknown): value is Record<string, unknown> {
   );
 }
 
-function stripDangerousKeys(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(stripDangerousKeys);
+const MAX_STRIP_DEPTH = 20;
+
+function stripDangerousKeys(value: unknown, depth: number = 0): unknown {
+  if (depth > MAX_STRIP_DEPTH) {
+    // Also catches circular references: a cycle keeps increasing depth on
+    // every pass through the same object instead of terminating.
+    throw new Error(
+      `stripDangerousKeys: body nesting exceeds max depth of ${MAX_STRIP_DEPTH}`,
+    );
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => stripDangerousKeys(item, depth + 1));
+  }
   if (!isPlainObjectValue(value)) return value;
 
   const clean: Record<string, unknown> = {};
   for (const key of Object.keys(value)) {
     if (DANGEROUS_KEYS.has(key)) continue;
-    clean[key] = stripDangerousKeys(value[key]);
+    clean[key] = stripDangerousKeys(value[key], depth + 1);
   }
   return clean;
 }
@@ -207,10 +218,24 @@ export class FetchCustom {
       return this.responseError;
     }
 
+    // Anything else (e.g. a guard in our own pre-fetch body handling
+    // throwing, such as stripDangerousKeys' depth limit) is a request
+    // problem, not a network/HTTP outcome, but still needs to surface
+    // through responseError like every other failure path here.
     const unknownError =
       error instanceof Error ? error : new Error(String(error));
-    if (this.isShowLogsFetch) console.error('RESPONSE_FETCH_ERR', unknownError);
-    return unknownError;
+    this.response = new Response(
+      JSON.stringify({ error: unknownError.message }),
+      {
+        status: 500,
+        statusText: 'RequestError',
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
+    this.responseError = new ResponseError(unknownError.message, this.response);
+    if (this.isShowLogsFetch)
+      console.error('RESPONSE_FETCH_ERR', this.responseError);
+    return this.responseError;
   }
 
   private defaultRetryOn(): boolean {

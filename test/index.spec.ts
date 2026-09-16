@@ -201,4 +201,36 @@ describe('FetchCustom', () => {
       nested: { safe: 'ok' },
     });
   });
+
+  it('should reject a body nested deeper than the strip limit instead of recursing forever', async () => {
+    const url = `${base}echo`;
+    let deeplyNested: Record<string, unknown> = { value: 'bottom' };
+    for (let i = 0; i < 25; i++) {
+      deeplyNested = { child: deeplyNested };
+    }
+    const instance = new FetchCustom({
+      isShowLogsFetch: false,
+      stripDangerousKeys: true,
+    });
+    await instance.fetchCustom(url, {
+      method: 'POST',
+      body: deeplyNested as unknown as BodyInit,
+    });
+    expect(instance.showResponseErrorClass()?.message).toContain('max depth');
+  });
+
+  it('should reject a circular body instead of recursing forever', async () => {
+    const url = `${base}echo`;
+    const circular: Record<string, unknown> = { name: 'Ada' };
+    circular.self = circular;
+    const instance = new FetchCustom({
+      isShowLogsFetch: false,
+      stripDangerousKeys: true,
+    });
+    await instance.fetchCustom(url, {
+      method: 'POST',
+      body: circular as unknown as BodyInit,
+    });
+    expect(instance.showResponseErrorClass()?.message).toContain('max depth');
+  });
 });
