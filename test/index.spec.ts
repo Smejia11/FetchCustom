@@ -158,7 +158,7 @@ describe('FetchCustom', () => {
     const instance = new FetchCustom({ isShowLogsFetch: false });
     await instance.fetchCustom(url, {
       method: 'POST',
-      body: { name: 'Ada', age: 30 },
+      body: { name: 'Ada', age: 30 } as unknown as BodyInit,
       bodySchema,
     });
     const { data } = await instance.toJson<{ receivedBody: string }>();
