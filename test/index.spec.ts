@@ -74,9 +74,94 @@ describe('FetchCustom', () => {
   it('should timeOut', async () => {
     const url = `${base}json-type-time-out`;
     const instance = new FetchCustom();
-    await instance.fetchCustom(url, { signal: AbortSignal.timeout(2) });
+    await instance.fetchCustom(url, { signal: AbortSignal.timeout(50) });
     const res = await instance.toJson();
     expect(res.data).exist;
     expect(instance.isTimeoutError).equal(true);
+  });
+
+  it('should timeOut using the constructor timeout option', async () => {
+    const url = `${base}json-type-time-out`;
+    const instance = new FetchCustom({ timeout: 50, isShowLogsFetch: false });
+    await instance.fetchCustom(url);
+    expect(instance.isTimeoutError).equal(true);
+  });
+
+  it('should reset error flags between calls on the same instance', async () => {
+    const instance = new FetchCustom({ isShowLogsFetch: false });
+    await instance.fetchCustom(`${base}json-type-time-out`, {
+      signal: AbortSignal.timeout(50),
+    });
+    expect(instance.isTimeoutError).equal(true);
+
+    await instance.fetchCustom(`${base}json-type`);
+    expect(instance.isTimeoutError).equal(false);
+    expect(instance.showResponseErrorClass()).toBeUndefined();
+  });
+
+  it('should retry on 5xx responses until it succeeds', async () => {
+    local.failuresBeforeSuccess = 2;
+    const url = `${base}flaky`;
+    const instance = new FetchCustom({
+      isShowLogsFetch: false,
+      retry: { attempts: 3, delayMs: 1 },
+    });
+    await instance.fetchCustom(url);
+    const { data } = await instance.toJson();
+    expect(data).toEqual({ test: 'ok' });
+  });
+
+  it('should stop retrying after exhausting attempts', async () => {
+    const url = `${base}always-fails`;
+    const instance = new FetchCustom({
+      isShowLogsFetch: false,
+      retry: { attempts: 3, delayMs: 1 },
+    });
+    await instance.fetchCustom(url);
+    expect(instance.showResponseErrorClass()?.status).toEqual(503);
+  });
+
+  it('should run request and response interceptors', async () => {
+    const url = `${base}json-type`;
+    const seen: string[] = [];
+    const instance = new FetchCustom({
+      isShowLogsFetch: false,
+      interceptors: {
+        request: (input, init) => {
+          seen.push('request');
+          return {
+            input,
+            init: { ...init, headers: { ...init?.headers, 'X-Test': '1' } },
+          };
+        },
+        response: (response) => {
+          seen.push('response');
+          return response;
+        },
+      },
+    });
+    await instance.fetchCustom(url);
+    expect(seen).toEqual(['request', 'response']);
+    expect(instance.response?.ok).equal(true);
+  });
+
+  it('should serialize the body with fast-json-stringify when bodySchema is provided', async () => {
+    const url = `${base}echo`;
+    const bodySchema = {
+      title: 'Payload',
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        age: { type: 'integer' },
+      },
+    };
+    const instance = new FetchCustom({ isShowLogsFetch: false });
+    await instance.fetchCustom(url, {
+      method: 'POST',
+      body: { name: 'Ada', age: 30 } as unknown as BodyInit,
+      bodySchema,
+    });
+    const { data } = await instance.toJson<{ receivedBody: string }>();
+    expect(JSON.parse(data!.receivedBody)).toEqual({ name: 'Ada', age: 30 });
   });
 });

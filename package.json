@@ -30,10 +30,10 @@
   "devDependencies": {
     "@arethetypeswrong/cli": "^0.16.2",
     "@changesets/cli": "^2.27.8",
+    "@types/node": "^22.5.5",
     "prettier": "^3.6.2",
     "typescript": "^5.6.2",
-    "vitest": "^2.1.1",
-    "@types/node": "^22.5.5"
+    "vitest": "^2.1.1"
   },
   "engineStrict": true,
   "engines": {
@@ -42,5 +42,8 @@
   "keywords": [
     "demo",
     "typescript"
-  ]
+  ],
+  "dependencies": {
+    "fast-json-stringify": "^7.0.1"
+  }
 }
