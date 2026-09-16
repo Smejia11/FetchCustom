@@ -75,16 +75,16 @@ describe('FetchCustom', () => {
     const url = `${base}json-type-time-out`;
     const instance = new FetchCustom();
     await instance.fetchCustom(url, { signal: AbortSignal.timeout(50) });
-    const res = await instance.toJson<{ error: string }>();
+    const res = await instance.toJson();
     expect(res.data).exist;
-    expect(res.data?.error).equal('AbortError');
+    expect(instance.isTimeoutError).equal(true);
   });
 
   it('should timeOut using the constructor timeout option', async () => {
     const url = `${base}json-type-time-out`;
-    const instance = new FetchCustom({ timeout: 50, isShowLogsFetch: true });
+    const instance = new FetchCustom({ timeout: 50, isShowLogsFetch: false });
     await instance.fetchCustom(url);
-    expect(instance.isAbortError).equal(true);
+    expect(instance.isTimeoutError).equal(true);
   });
 
   it('should reset error flags between calls on the same instance', async () => {
@@ -92,7 +92,7 @@ describe('FetchCustom', () => {
     await instance.fetchCustom(`${base}json-type-time-out`, {
       signal: AbortSignal.timeout(50),
     });
-    expect(instance.isAbortError).equal(true);
+    expect(instance.isTimeoutError).equal(true);
 
     await instance.fetchCustom(`${base}json-type`);
     expect(instance.isTimeoutError).equal(false);
