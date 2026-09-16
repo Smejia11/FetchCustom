@@ -164,4 +164,73 @@ describe('FetchCustom', () => {
     const { data } = await instance.toJson<{ receivedBody: string }>();
     expect(JSON.parse(data!.receivedBody)).toEqual({ name: 'Ada', age: 30 });
   });
+
+  it('should keep dangerous keys as-is by default (stripDangerousKeys is opt-in)', async () => {
+    const url = `${base}echo`;
+    const body = JSON.parse(
+      '{"name":"Ada","__proto__":{"polluted":true},"nested":{"prototype":{"x":1},"safe":"ok"}}',
+    );
+    const instance = new FetchCustom({ isShowLogsFetch: false });
+    await instance.fetchCustom(url, {
+      method: 'POST',
+      body: body as unknown as BodyInit,
+    });
+    const { data } = await instance.toJson<{ receivedBody: string }>();
+    expect(data!.receivedBody).toContain('__proto__');
+    expect(data!.receivedBody).toContain('prototype');
+  });
+
+  it('should strip __proto__/constructor/prototype keys when stripDangerousKeys is enabled', async () => {
+    const url = `${base}echo`;
+    const body = JSON.parse(
+      '{"name":"Ada","__proto__":{"polluted":true},"nested":{"prototype":{"x":1},"safe":"ok"}}',
+    );
+    const instance = new FetchCustom({
+      isShowLogsFetch: false,
+      stripDangerousKeys: true,
+    });
+    await instance.fetchCustom(url, {
+      method: 'POST',
+      body: body as unknown as BodyInit,
+    });
+    const { data } = await instance.toJson<{ receivedBody: string }>();
+    expect(data!.receivedBody).not.toContain('__proto__');
+    expect(data!.receivedBody).not.toContain('prototype');
+    expect(JSON.parse(data!.receivedBody)).toEqual({
+      name: 'Ada',
+      nested: { safe: 'ok' },
+    });
+  });
+
+  it('should reject a body nested deeper than the strip limit instead of recursing forever', async () => {
+    const url = `${base}echo`;
+    let deeplyNested: Record<string, unknown> = { value: 'bottom' };
+    for (let i = 0; i < 25; i++) {
+      deeplyNested = { child: deeplyNested };
+    }
+    const instance = new FetchCustom({
+      isShowLogsFetch: false,
+      stripDangerousKeys: true,
+    });
+    await instance.fetchCustom(url, {
+      method: 'POST',
+      body: deeplyNested as unknown as BodyInit,
+    });
+    expect(instance.showResponseErrorClass()?.message).toContain('max depth');
+  });
+
+  it('should reject a circular body instead of recursing forever', async () => {
+    const url = `${base}echo`;
+    const circular: Record<string, unknown> = { name: 'Ada' };
+    circular.self = circular;
+    const instance = new FetchCustom({
+      isShowLogsFetch: false,
+      stripDangerousKeys: true,
+    });
+    await instance.fetchCustom(url, {
+      method: 'POST',
+      body: circular as unknown as BodyInit,
+    });
+    expect(instance.showResponseErrorClass()?.message).toContain('max depth');
+  });
 });

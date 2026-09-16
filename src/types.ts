@@ -38,4 +38,13 @@ export interface FetchCustomOptions {
   timeout?: number;
   retry?: RetryOptions;
   interceptors?: Interceptors;
+  /**
+   * When true, recursively strips `__proto__`, `constructor`, and
+   * `prototype` keys from plain object/array bodies before serializing
+   * them. Off by default: it only matters as defense-in-depth against a
+   * downstream API that unsafely merges the JSON body it receives, and it
+   * would otherwise reject a legitimate field that happens to be named
+   * "constructor".
+   */
+  stripDangerousKeys?: boolean;
 }
