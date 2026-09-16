@@ -5,6 +5,7 @@ export default class TestServer extends EventEmitter.EventEmitter {
   server: http.Server<typeof http.IncomingMessage, typeof http.ServerResponse>;
   hostname: string;
   nextResponseHandler: any;
+  failuresBeforeSuccess: number = 0;
   constructor(hostname: string) {
     super();
     this.server = http.createServer(this.router);
@@ -88,6 +89,25 @@ export default class TestServer extends EventEmitter.EventEmitter {
       }, 5000);
       res.on('close', () => clearTimeout(timer));
       return;
+    }
+
+    if (p === '/flaky') {
+      if (this.failuresBeforeSuccess > 0) {
+        this.failuresBeforeSuccess -= 1;
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ test: 'fail' }));
+        return;
+      }
+      res.statusCode = 200;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ test: 'ok' }));
+    }
+
+    if (p === '/always-fails') {
+      res.statusCode = 503;
+      res.setHeader('Content-Type', 'application/json');
+      res.end(JSON.stringify({ test: 'fail' }));
     }
   }
 }

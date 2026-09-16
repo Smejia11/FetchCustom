@@ -10,6 +10,9 @@
 - **Custom Error Handling**: Provides a `ResponseError` class for detailed error messages, including HTTP status codes and status text.
 - **Data Parsing**: Supports methods for parsing responses as JSON, text, or blobs.
 - **Resolve Pattern**: Uses the resolve pattern to handle success and error states more gracefully.
+- **Timeout**: Cancel a request automatically after a configurable number of milliseconds.
+- **Retry**: Automatically retry failed requests with fixed or exponential backoff.
+- **Interceptors**: Hook into a request before it is sent and a response before it is returned.
 
 ## Requirements
 
@@ -92,6 +95,58 @@ if (result.error) {
 } else {
   console.log('Blob:', result.data);
 }
+```
+
+### Timeout
+
+Pass a `timeout` (in milliseconds) to the constructor to abort the request automatically. It is combined with any `signal` you pass to `fetchCustom`, so both can cancel the request.
+
+```typescript
+const fetcher = new FetchCustom({ timeout: 5000 });
+await fetcher.fetchCustom('https://api.example.com/data');
+if (fetcher.isTimeoutError) {
+  console.error('Request timed out');
+}
+```
+
+### Retry
+
+Pass a `retry` option to retry failed requests. By default, a request is retried when it fails with a network error, a timeout, or a `5xx` response.
+
+```typescript
+const fetcher = new FetchCustom({
+  retry: {
+    attempts: 3, // total attempts, including the first one
+    delayMs: 300, // base delay between attempts
+    backoff: 'exponential', // 'fixed' (default) or 'exponential'
+    // Optional: override which failures are retried
+    retryOn: (error, response) => response?.status === 429,
+  },
+});
+await fetcher.fetchCustom('https://api.example.com/data');
+```
+
+### Interceptors
+
+Use `interceptors.request` to modify the request before it is sent, and `interceptors.response` to inspect or transform the response before it is used.
+
+```typescript
+const fetcher = new FetchCustom({
+  interceptors: {
+    request: (input, init) => ({
+      input,
+      init: {
+        ...init,
+        headers: { ...init?.headers, Authorization: 'Bearer <token>' },
+      },
+    }),
+    response: (response) => {
+      console.log('status', response.status);
+      return response;
+    },
+  },
+});
+await fetcher.fetchCustom('https://api.example.com/data');
 ```
 
 ## Error Handling

@@ -1,5 +1,10 @@
 import { result } from './Result/result.js';
-import type { RequestInfo } from './types.js';
+import type {
+  FetchCustomOptions,
+  Interceptors,
+  RequestInfo,
+  RetryOptions,
+} from './types.js';
 
 export class ResponseError extends Error {
   response: Response;
@@ -38,21 +43,51 @@ export class ResponseError extends Error {
   }
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function combineSignals(
+  signals: Array<AbortSignal | null | undefined>,
+): AbortSignal | undefined {
+  const valid = signals.filter((signal): signal is AbortSignal => !!signal);
+  if (valid.length === 0) return undefined;
+  if (valid.length === 1) return valid[0];
+
+  const controller = new AbortController();
+  for (const signal of valid) {
+    if (signal.aborted) {
+      controller.abort(signal.reason);
+      break;
+    }
+    signal.addEventListener('abort', () => controller.abort(signal.reason), {
+      once: true,
+    });
+  }
+  return controller.signal;
+}
+
 export class FetchCustom {
   response: Response | null = null;
   private responseError: ResponseError | null = null;
   public fetchTimeMs: number | null = null;
-  domException!: DOMException;
+  domException?: DOMException;
   isTimeoutError: boolean = false;
   isAbortError: boolean = false;
   isNetworkError: boolean = false;
   isUnknownDomError: boolean = false;
   isSecurityError: boolean = false;
   private isShowLogsFetch: boolean = true;
+  private timeoutMs?: number;
+  private retryOptions?: RetryOptions;
+  private interceptorsOptions?: Interceptors;
 
-  constructor(options?: { isShowLogsFetch?: boolean }) {
+  constructor(options?: FetchCustomOptions) {
     this.fetchCustom = this.fetchCustom.bind(this);
     this.isShowLogsFetch = options?.isShowLogsFetch ?? true;
+    this.timeoutMs = options?.timeout;
+    this.retryOptions = options?.retry;
+    this.interceptorsOptions = options?.interceptors;
   }
 
   public get _isShowLogsFetch(): boolean {
@@ -69,67 +104,170 @@ export class FetchCustom {
     if (this.responseError) return this.responseError.toStringResponseError();
   }
 
+  private resetState() {
+    this.response = null;
+    this.responseError = null;
+    this.fetchTimeMs = null;
+    this.domException = undefined;
+    this.isTimeoutError = false;
+    this.isAbortError = false;
+    this.isNetworkError = false;
+    this.isUnknownDomError = false;
+    this.isSecurityError = false;
+  }
+
+  private handleFetchError(error: unknown): Error {
+    if (error instanceof ResponseError) {
+      this.responseError = error;
+      if (this.isShowLogsFetch)
+        console.error('RESPONSE_FETCH_ERR', this.responseError);
+      return error;
+    }
+
+    if (error instanceof DOMException) {
+      this.domException = error;
+      if (this.isShowLogsFetch)
+        console.error(`DOMException: [${error.name}] ${error.message}`);
+
+      if (error.name === 'AbortError') this.isAbortError = true;
+      else if (error.name === 'NetworkError') this.isNetworkError = true;
+      else if (error.name === 'SecurityError') this.isSecurityError = true;
+      else if (error.name === 'TimeoutError') this.isTimeoutError = true;
+      else this.isUnknownDomError = true;
+
+      this.response = new Response(JSON.stringify({ error: error.name }), {
+        status:
+          error.name === 'AbortError' || error.name === 'TimeoutError'
+            ? 408
+            : 520,
+        statusText: error.name,
+        headers: { 'Content-Type': 'application/json' },
+      });
+      this.responseError = new ResponseError(
+        `DOMException: ${error.name}`,
+        this.response,
+      );
+      if (this.isShowLogsFetch)
+        console.error('RESPONSE_FETCH_ERR', this.responseError);
+      return this.responseError;
+    }
+
+    // Network failures (connection refused, DNS errors, etc.) surface from
+    // Node's fetch implementation as a plain TypeError, not a DOMException.
+    if (error instanceof TypeError) {
+      this.isNetworkError = true;
+      this.response = new Response(JSON.stringify({ error: error.message }), {
+        status: 599,
+        statusText: 'NetworkError',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      this.responseError = new ResponseError(
+        `NetworkError: ${error.message}`,
+        this.response,
+      );
+      if (this.isShowLogsFetch)
+        console.error('RESPONSE_FETCH_ERR', this.responseError);
+      return this.responseError;
+    }
+
+    const unknownError =
+      error instanceof Error ? error : new Error(String(error));
+    if (this.isShowLogsFetch) console.error('RESPONSE_FETCH_ERR', unknownError);
+    return unknownError;
+  }
+
+  private defaultRetryOn(): boolean {
+    if (this.isNetworkError || this.isTimeoutError) return true;
+    if (this.response && this.response.status >= 500) return true;
+    return false;
+  }
+
+  private getRetryDelay(retry: RetryOptions, attemptIndex: number): number {
+    const base = retry.delayMs ?? 300;
+    if (retry.backoff === 'exponential') return base * 2 ** attemptIndex;
+    return base;
+  }
+
   async fetchCustom(
     input: RequestInfo,
     init?: RequestInit,
   ): Promise<FetchCustom> {
+    this.resetState();
     const start = new Date();
+    const totalAttempts = Math.max(1, this.retryOptions?.attempts ?? 1);
 
     try {
-      let initOptions = init;
-      // If we specified a RequestInit for fetch
-      if (initOptions?.body) {
-        // If we have passed a body property and it is a plain object or array
-        if (
-          Array.isArray(initOptions.body) ||
-          this.isPlainObject(initOptions.body)
-        ) {
-          // Create a new options object serializing the body and ensuring we
-          // have a content-type header
-          initOptions = {
-            ...initOptions,
-            body: JSON.stringify(initOptions.body),
-            headers: {
-              'Content-Type': 'application/json',
-              ...initOptions.headers,
-            },
-          };
+      for (let attempt = 0; attempt < totalAttempts; attempt++) {
+        try {
+          let requestInput: RequestInfo = input;
+          let initOptions = init;
+
+          if (this.interceptorsOptions?.request) {
+            const intercepted = await this.interceptorsOptions.request(
+              requestInput,
+              initOptions,
+            );
+            requestInput = intercepted.input;
+            initOptions = intercepted.init;
+          }
+
+          // If we specified a RequestInit for fetch
+          if (initOptions?.body) {
+            // If we have passed a body property and it is a plain object or array
+            if (
+              Array.isArray(initOptions.body) ||
+              this.isPlainObject(initOptions.body)
+            ) {
+              // Create a new options object serializing the body and ensuring we
+              // have a content-type header
+              initOptions = {
+                ...initOptions,
+                body: JSON.stringify(initOptions.body),
+                headers: {
+                  'Content-Type': 'application/json',
+                  ...initOptions.headers,
+                },
+              };
+            }
+          }
+
+          if (this.timeoutMs) {
+            initOptions = {
+              ...initOptions,
+              signal: combineSignals([
+                initOptions?.signal,
+                AbortSignal.timeout(this.timeoutMs),
+              ]),
+            };
+          }
+
+          let res = await fetch(requestInput, initOptions);
+
+          if (this.interceptorsOptions?.response) {
+            res = await this.interceptorsOptions.response(res);
+          }
+
+          this.response = res;
+          if (!res.ok) {
+            throw new ResponseError(
+              `Bad response statusText: ${res.statusText}, statusCode:${res.status}`,
+              res,
+            );
+          }
+          return this;
+        } catch (error) {
+          const handledError = this.handleFetchError(error);
+          const isLastAttempt = attempt === totalAttempts - 1;
+          if (isLastAttempt) return this;
+
+          const shouldRetry = this.retryOptions?.retryOn
+            ? this.retryOptions.retryOn(handledError, this.response)
+            : this.defaultRetryOn();
+          if (!shouldRetry) return this;
+
+          await sleep(this.getRetryDelay(this.retryOptions!, attempt));
         }
       }
-      const res = await fetch(input, initOptions);
-      this.response = res;
-      if (!res.ok) {
-        throw new ResponseError(
-          `Bad response statusText: ${res.statusText}, statusCode:${res.status}`,
-          res,
-        );
-      }
-      return this;
-    } catch (error) {
-      if (error instanceof ResponseError)
-        this.responseError = error as ResponseError;
-      if (error instanceof DOMException) {
-        this.domException = error;
-        if (this.isShowLogsFetch)
-          console.error(`DOMException: [${error.name}] ${error.message}`);
-
-        if (error.name === 'AbortError') this.isAbortError = true;
-        else if (error.name === 'NetworkError') this.isNetworkError = true;
-        else if (error.name === 'SecurityError') this.isSecurityError = true;
-        else if (error.name === 'TimeoutError') this.isTimeoutError = true;
-        else this.isUnknownDomError = true;
-        this.response = new Response(JSON.stringify({ error: error.name }), {
-          status: error.name === 'AbortError' ? 408 : 520,
-          statusText: error.name,
-          headers: { 'Content-Type': 'application/json' },
-        });
-        this.responseError = new ResponseError(
-          `DOMException: ${error.name}`,
-          this.response,
-        );
-      }
-      if (this.isShowLogsFetch)
-        console.error('RESPONSE_FETCH_ERR', this.responseError);
       return this;
     } finally {
       const end = new Date();

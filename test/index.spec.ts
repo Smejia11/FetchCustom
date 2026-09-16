@@ -79,4 +79,69 @@ describe('FetchCustom', () => {
     expect(res.data).exist;
     expect(instance.isTimeoutError).equal(true);
   });
+
+  it('should timeOut using the constructor timeout option', async () => {
+    const url = `${base}json-type-time-out`;
+    const instance = new FetchCustom({ timeout: 2, isShowLogsFetch: false });
+    await instance.fetchCustom(url);
+    expect(instance.isTimeoutError).equal(true);
+  });
+
+  it('should reset error flags between calls on the same instance', async () => {
+    const instance = new FetchCustom({ isShowLogsFetch: false });
+    await instance.fetchCustom(`${base}json-type-time-out`, {
+      signal: AbortSignal.timeout(2),
+    });
+    expect(instance.isTimeoutError).equal(true);
+
+    await instance.fetchCustom(`${base}json-type`);
+    expect(instance.isTimeoutError).equal(false);
+    expect(instance.showResponseErrorClass()).toBeUndefined();
+  });
+
+  it('should retry on 5xx responses until it succeeds', async () => {
+    local.failuresBeforeSuccess = 2;
+    const url = `${base}flaky`;
+    const instance = new FetchCustom({
+      isShowLogsFetch: false,
+      retry: { attempts: 3, delayMs: 1 },
+    });
+    await instance.fetchCustom(url);
+    const { data } = await instance.toJson();
+    expect(data).toEqual({ test: 'ok' });
+  });
+
+  it('should stop retrying after exhausting attempts', async () => {
+    const url = `${base}always-fails`;
+    const instance = new FetchCustom({
+      isShowLogsFetch: false,
+      retry: { attempts: 3, delayMs: 1 },
+    });
+    await instance.fetchCustom(url);
+    expect(instance.showResponseErrorClass()?.status).toEqual(503);
+  });
+
+  it('should run request and response interceptors', async () => {
+    const url = `${base}json-type`;
+    const seen: string[] = [];
+    const instance = new FetchCustom({
+      isShowLogsFetch: false,
+      interceptors: {
+        request: (input, init) => {
+          seen.push('request');
+          return {
+            input,
+            init: { ...init, headers: { ...init?.headers, 'X-Test': '1' } },
+          };
+        },
+        response: (response) => {
+          seen.push('response');
+          return response;
+        },
+      },
+    });
+    await instance.fetchCustom(url);
+    expect(seen).toEqual(['request', 'response']);
+    expect(instance.response?.ok).equal(true);
+  });
 });
