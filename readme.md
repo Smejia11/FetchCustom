@@ -13,6 +13,7 @@
 - **Timeout**: Cancel a request automatically after a configurable number of milliseconds.
 - **Retry**: Automatically retry failed requests with fixed or exponential backoff.
 - **Interceptors**: Hook into a request before it is sent and a response before it is returned.
+- **Optional Fast Serialization**: Serialize the body with a compiled [`fast-json-stringify`](https://github.com/fastify/fast-json-stringify) function when you provide a JSON Schema.
 
 ## Requirements
 
@@ -148,6 +149,30 @@ const fetcher = new FetchCustom({
 });
 await fetcher.fetchCustom('https://api.example.com/data');
 ```
+
+### Fast body serialization with `fast-json-stringify`
+
+By default, object/array bodies are serialized with the native `JSON.stringify`, which is fast enough for typical request payloads. If you serialize the same shape of body very frequently and want to shave off native serialization time, pass a `bodySchema` (a [`fast-json-stringify`](https://github.com/fastify/fast-json-stringify) JSON Schema) to compile and cache a dedicated serializer for it:
+
+```typescript
+const userSchema = {
+  title: 'User',
+  type: 'object',
+  properties: {
+    name: { type: 'string' },
+    age: { type: 'integer' },
+  },
+};
+
+const fetcher = new FetchCustom();
+await fetcher.fetchCustom('https://api.example.com/users', {
+  method: 'POST',
+  body: { name: 'Ada', age: 30 },
+  bodySchema: userSchema,
+});
+```
+
+Reuse the same `bodySchema` object reference across calls so the compiled serializer is cached instead of recompiled on every request.
 
 ## Error Handling
 

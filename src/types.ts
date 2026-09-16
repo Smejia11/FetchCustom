@@ -1,5 +1,15 @@
 export type RequestInfo = string | URL | Request;
 
+export interface FetchCustomRequestInit extends RequestInit {
+  /**
+   * A fast-json-stringify JSON Schema describing the shape of `body`.
+   * When provided, the body is serialized with a compiled fast-json-stringify
+   * function instead of the native `JSON.stringify`. Pass the same schema
+   * object reference across calls so the compiled serializer gets cached.
+   */
+  bodySchema?: object;
+}
+
 export interface RetryOptions {
   attempts: number;
   delayMs?: number;
@@ -9,10 +19,10 @@ export interface RetryOptions {
 
 export type RequestInterceptor = (
   input: RequestInfo,
-  init?: RequestInit,
+  init?: FetchCustomRequestInit,
 ) =>
-  | { input: RequestInfo; init?: RequestInit }
-  | Promise<{ input: RequestInfo; init?: RequestInit }>;
+  | { input: RequestInfo; init?: FetchCustomRequestInit }
+  | Promise<{ input: RequestInfo; init?: FetchCustomRequestInit }>;
 
 export type ResponseInterceptor = (
   response: Response,

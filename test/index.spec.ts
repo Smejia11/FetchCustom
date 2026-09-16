@@ -144,4 +144,24 @@ describe('FetchCustom', () => {
     expect(seen).toEqual(['request', 'response']);
     expect(instance.response?.ok).equal(true);
   });
+
+  it('should serialize the body with fast-json-stringify when bodySchema is provided', async () => {
+    const url = `${base}echo`;
+    const bodySchema = {
+      title: 'Payload',
+      type: 'object',
+      properties: {
+        name: { type: 'string' },
+        age: { type: 'integer' },
+      },
+    };
+    const instance = new FetchCustom({ isShowLogsFetch: false });
+    await instance.fetchCustom(url, {
+      method: 'POST',
+      body: { name: 'Ada', age: 30 },
+      bodySchema,
+    });
+    const { data } = await instance.toJson<{ receivedBody: string }>();
+    expect(JSON.parse(data!.receivedBody)).toEqual({ name: 'Ada', age: 30 });
+  });
 });

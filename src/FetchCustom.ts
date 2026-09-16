@@ -1,6 +1,8 @@
+import build from 'fast-json-stringify';
 import { result } from './Result/result.js';
 import type {
   FetchCustomOptions,
+  FetchCustomRequestInit,
   Interceptors,
   RequestInfo,
   RetryOptions,
@@ -45,6 +47,19 @@ export class ResponseError extends Error {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+const compiledStringifiers = new WeakMap<object, (data: unknown) => string>();
+
+function stringifyBody(body: unknown, schema?: object): string {
+  if (!schema) return JSON.stringify(body);
+
+  let stringify = compiledStringifiers.get(schema);
+  if (!stringify) {
+    stringify = build(schema as Parameters<typeof build>[0]);
+    compiledStringifiers.set(schema, stringify);
+  }
+  return stringify(body);
 }
 
 function combineSignals(
@@ -190,7 +205,7 @@ export class FetchCustom {
 
   async fetchCustom(
     input: RequestInfo,
-    init?: RequestInit,
+    init?: FetchCustomRequestInit,
   ): Promise<FetchCustom> {
     this.resetState();
     const start = new Date();
@@ -220,9 +235,10 @@ export class FetchCustom {
             ) {
               // Create a new options object serializing the body and ensuring we
               // have a content-type header
+              const { bodySchema, ...rest } = initOptions;
               initOptions = {
-                ...initOptions,
-                body: JSON.stringify(initOptions.body),
+                ...rest,
+                body: stringifyBody(initOptions.body, bodySchema),
                 headers: {
                   'Content-Type': 'application/json',
                   ...initOptions.headers,

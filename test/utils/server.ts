@@ -109,5 +109,18 @@ export default class TestServer extends EventEmitter.EventEmitter {
       res.setHeader('Content-Type', 'application/json');
       res.end(JSON.stringify({ test: 'fail' }));
     }
+
+    if (p === '/echo') {
+      let raw = '';
+      request.on('data', (chunk: Buffer) => {
+        raw += chunk;
+      });
+      request.on('end', () => {
+        res.statusCode = 200;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ receivedBody: raw }));
+      });
+      return;
+    }
   }
 }
