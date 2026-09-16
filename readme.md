@@ -14,6 +14,7 @@
 - **Retry**: Automatically retry failed requests with fixed or exponential backoff.
 - **Interceptors**: Hook into a request before it is sent and a response before it is returned.
 - **Optional Fast Serialization**: Serialize the body with a compiled [`fast-json-stringify`](https://github.com/fastify/fast-json-stringify) function when you provide a JSON Schema.
+- **Optional Key Stripping**: Recursively remove `__proto__`/`constructor`/`prototype` keys from object/array bodies before serializing them.
 
 ## Requirements
 
@@ -173,6 +174,20 @@ await fetcher.fetchCustom('https://api.example.com/users', {
 ```
 
 Reuse the same `bodySchema` object reference across calls so the compiled serializer is cached instead of recompiled on every request.
+
+### Stripping dangerous keys from the body
+
+`FetchCustom` does not merge the body into any shared object, so `__proto__`/`constructor`/`prototype` keys in it cannot pollute this library's own state. If you're calling a downstream API that you know merges the JSON body it receives in an unsafe way, you can opt into stripping those keys as defense-in-depth before the body leaves your app:
+
+```typescript
+const fetcher = new FetchCustom({ stripDangerousKeys: true });
+await fetcher.fetchCustom('https://api.example.com/data', {
+  method: 'POST',
+  body: untrustedBody,
+});
+```
+
+This is off by default, since it would otherwise reject a legitimate field that happens to be named `constructor` (e.g. a car's `constructor: 'Ford'`). It only protects the receiving server against its own unsafe merge of the body — it is not a substitute for sanitizing that server's input, and it has nothing to do with XSS: this library sends bytes over HTTP, it does not render anything into a DOM, so escaping HTML/script content here would only corrupt legitimate payloads (code snippets, HTML content, etc.) without preventing XSS, which must be handled at the point where data is rendered.
 
 ## Error Handling
 

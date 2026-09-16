@@ -62,6 +62,26 @@ function stringifyBody(body: unknown, schema?: object): string {
   return stringify(body);
 }
 
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+function isPlainObjectValue(value: unknown): value is Record<string, unknown> {
+  return (
+    value !== null && typeof value === 'object' && value.constructor === Object
+  );
+}
+
+function stripDangerousKeys(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripDangerousKeys);
+  if (!isPlainObjectValue(value)) return value;
+
+  const clean: Record<string, unknown> = {};
+  for (const key of Object.keys(value)) {
+    if (DANGEROUS_KEYS.has(key)) continue;
+    clean[key] = stripDangerousKeys(value[key]);
+  }
+  return clean;
+}
+
 function combineSignals(
   signals: Array<AbortSignal | null | undefined>,
 ): AbortSignal | undefined {
@@ -96,6 +116,7 @@ export class FetchCustom {
   private timeoutMs?: number;
   private retryOptions?: RetryOptions;
   private interceptorsOptions?: Interceptors;
+  private stripDangerousKeysOption: boolean;
 
   constructor(options?: FetchCustomOptions) {
     this.fetchCustom = this.fetchCustom.bind(this);
@@ -103,6 +124,7 @@ export class FetchCustom {
     this.timeoutMs = options?.timeout;
     this.retryOptions = options?.retry;
     this.interceptorsOptions = options?.interceptors;
+    this.stripDangerousKeysOption = options?.stripDangerousKeys ?? false;
   }
 
   public get _isShowLogsFetch(): boolean {
@@ -236,9 +258,12 @@ export class FetchCustom {
               // Create a new options object serializing the body and ensuring we
               // have a content-type header
               const { bodySchema, ...rest } = initOptions;
+              const bodyToSerialize = this.stripDangerousKeysOption
+                ? stripDangerousKeys(initOptions.body)
+                : initOptions.body;
               initOptions = {
                 ...rest,
-                body: stringifyBody(initOptions.body, bodySchema),
+                body: stringifyBody(bodyToSerialize, bodySchema),
                 headers: {
                   'Content-Type': 'application/json',
                   ...initOptions.headers,

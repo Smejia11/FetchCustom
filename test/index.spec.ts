@@ -164,4 +164,41 @@ describe('FetchCustom', () => {
     const { data } = await instance.toJson<{ receivedBody: string }>();
     expect(JSON.parse(data!.receivedBody)).toEqual({ name: 'Ada', age: 30 });
   });
+
+  it('should keep dangerous keys as-is by default (stripDangerousKeys is opt-in)', async () => {
+    const url = `${base}echo`;
+    const body = JSON.parse(
+      '{"name":"Ada","__proto__":{"polluted":true},"nested":{"prototype":{"x":1},"safe":"ok"}}',
+    );
+    const instance = new FetchCustom({ isShowLogsFetch: false });
+    await instance.fetchCustom(url, {
+      method: 'POST',
+      body: body as unknown as BodyInit,
+    });
+    const { data } = await instance.toJson<{ receivedBody: string }>();
+    expect(data!.receivedBody).toContain('__proto__');
+    expect(data!.receivedBody).toContain('prototype');
+  });
+
+  it('should strip __proto__/constructor/prototype keys when stripDangerousKeys is enabled', async () => {
+    const url = `${base}echo`;
+    const body = JSON.parse(
+      '{"name":"Ada","__proto__":{"polluted":true},"nested":{"prototype":{"x":1},"safe":"ok"}}',
+    );
+    const instance = new FetchCustom({
+      isShowLogsFetch: false,
+      stripDangerousKeys: true,
+    });
+    await instance.fetchCustom(url, {
+      method: 'POST',
+      body: body as unknown as BodyInit,
+    });
+    const { data } = await instance.toJson<{ receivedBody: string }>();
+    expect(data!.receivedBody).not.toContain('__proto__');
+    expect(data!.receivedBody).not.toContain('prototype');
+    expect(JSON.parse(data!.receivedBody)).toEqual({
+      name: 'Ada',
+      nested: { safe: 'ok' },
+    });
+  });
 });
