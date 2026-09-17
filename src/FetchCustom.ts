@@ -128,6 +128,7 @@ export class FetchCustom {
   private retryOptions?: RetryOptions;
   private interceptorsOptions?: Interceptors;
   private stripDangerousKeysOption: boolean;
+  private defaultDispatcher?: unknown;
 
   constructor(options?: FetchCustomOptions) {
     this.fetchCustom = this.fetchCustom.bind(this);
@@ -136,6 +137,7 @@ export class FetchCustom {
     this.retryOptions = options?.retry;
     this.interceptorsOptions = options?.interceptors;
     this.stripDangerousKeysOption = options?.stripDangerousKeys ?? false;
+    this.defaultDispatcher = options?.dispatcher;
   }
 
   public get _isShowLogsFetch(): boolean {
@@ -304,6 +306,13 @@ export class FetchCustom {
                 initOptions?.signal,
                 AbortSignal.timeout(this.timeoutMs),
               ]),
+            };
+          }
+
+          if (this.defaultDispatcher && initOptions?.dispatcher === undefined) {
+            initOptions = {
+              ...initOptions,
+              dispatcher: this.defaultDispatcher,
             };
           }
 
