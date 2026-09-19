@@ -1,5 +1,5 @@
 import { FetchCustom } from '../src/FetchCustom';
-import { describe, expect, it, beforeEach, afterEach } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
 import TestServer from './utils/server';
 
 describe('FetchCustom', () => {
@@ -232,5 +232,31 @@ describe('FetchCustom', () => {
       body: circular as unknown as BodyInit,
     });
     expect(instance.showResponseErrorClass()?.message).toContain('max depth');
+  });
+
+  it('should forward a default dispatcher from the constructor to fetch', async () => {
+    const url = `${base}json-type`;
+    const dispatcher = { name: 'fake-dispatcher' };
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const instance = new FetchCustom({ isShowLogsFetch: false, dispatcher });
+    await instance.fetchCustom(url);
+    expect(fetchSpy.mock.calls[0]?.[1]).toMatchObject({ dispatcher });
+    fetchSpy.mockRestore();
+  });
+
+  it('should let a per-call dispatcher override the constructor default', async () => {
+    const url = `${base}json-type`;
+    const defaultDispatcher = { name: 'default-dispatcher' };
+    const callDispatcher = { name: 'call-dispatcher' };
+    const fetchSpy = vi.spyOn(globalThis, 'fetch');
+    const instance = new FetchCustom({
+      isShowLogsFetch: false,
+      dispatcher: defaultDispatcher,
+    });
+    await instance.fetchCustom(url, { dispatcher: callDispatcher });
+    expect(fetchSpy.mock.calls[0]?.[1]).toMatchObject({
+      dispatcher: callDispatcher,
+    });
+    fetchSpy.mockRestore();
   });
 });

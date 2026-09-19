@@ -15,6 +15,7 @@
 - **Interceptors**: Hook into a request before it is sent and a response before it is returned.
 - **Optional Fast Serialization**: Serialize the body with a compiled [`fast-json-stringify`](https://github.com/fastify/fast-json-stringify) function when you provide a JSON Schema.
 - **Optional Key Stripping**: Recursively remove `__proto__`/`constructor`/`prototype` keys from object/array bodies before serializing them.
+- **Custom Dispatcher**: Plug in a Node/undici `Agent` to tune keep-alive/connection pooling, either as a per-instance default or per call.
 
 ## Requirements
 
@@ -190,6 +191,27 @@ await fetcher.fetchCustom('https://api.example.com/data', {
 This is off by default, since it would otherwise reject a legitimate field that happens to be named `constructor` (e.g. a car's `constructor: 'Ford'`). It only protects the receiving server against its own unsafe merge of the body — it is not a substitute for sanitizing that server's input, and it has nothing to do with XSS: this library sends bytes over HTTP, it does not render anything into a DOM, so escaping HTML/script content here would only corrupt legitimate payloads (code snippets, HTML content, etc.) without preventing XSS, which must be handled at the point where data is rendered.
 
 When enabled, it also caps how deep it will recurse into the body (20 levels). A body nested past that limit — or a circular reference, which keeps increasing the depth on every pass instead of terminating — makes `fetchCustom` fail with a `ResponseError` you can inspect via `showResponseErrorClass()`, instead of recursing indefinitely and blocking the event loop or overflowing the stack.
+
+### Tuning keep-alive with a custom dispatcher
+
+Node's native `fetch` already reuses (keeps alive) and pools connections to the same host by default — you don't need to do anything for that. If you want to tune it (pool size, keep-alive timeout, TLS options, etc.), install [`undici`](https://undici.nodejs.org) and pass your own `Agent` as `dispatcher`:
+
+```typescript
+import { Agent } from 'undici';
+
+const keepAliveAgent = new Agent({
+  keepAliveTimeout: 10_000,
+  connections: 50,
+});
+
+// Create the Agent once and reuse this same FetchCustom instance for every
+// call — a fresh Agent per call would create a new connection pool every
+// time, defeating keep-alive instead of tuning it.
+const fetcher = new FetchCustom({ dispatcher: keepAliveAgent });
+await fetcher.fetchCustom('https://api.example.com/data');
+```
+
+You can also override it for a single call by passing `dispatcher` directly to `fetchCustom`. This isn't a proxy — `dispatcher` only controls how *this* client manages its own connections. To actually route requests through an HTTP proxy, pass an `undici.ProxyAgent` instead; that's a different (and separately installed) concern from keep-alive tuning.
 
 ## Error Handling
 
