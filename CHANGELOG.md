@@ -1,5 +1,13 @@
 # fetchcustom
 
+## 3.1.0
+
+### Minor Changes
+
+- 8f1c760: feat: support optional `bodySchema` to serialize request bodies with a compiled `fast-json-stringify` function; split CI into separate build and test jobs so a failing test surfaces as its own check
+- a25a6e0: feat: add opt-in `stripDangerousKeys` option to recursively remove `__proto__`/`constructor`/`prototype` keys from object/array bodies before serializing them, as defense-in-depth when calling a downstream API that unsafely merges its request body. Guarded with a max recursion depth so a deeply nested or circular body fails fast with a `ResponseError` instead of recursing indefinitely.
+- ee7701f: feat: add timeout, retry, and request/response interceptor options to FetchCustom; fix real network errors (TypeError) not being handled and per-instance error state leaking across calls
+
 ## 3.0.1
 
 ### Patch Changes
